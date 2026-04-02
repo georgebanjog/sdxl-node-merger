@@ -1,0 +1,84 @@
+{
+    "version": "1.0",
+    "name": "Example Merge",
+    "created": "2026-04-02T21:00:00Z",
+    "modified": "2026-04-02T21:00:00Z",
+    "viewport": { "x": 100, "y": 80, "zoom": 1.0 },
+    "nodes": [
+        {
+            "id": "node_1",
+            "type": "checkpoint_loader",
+            "position": { "x": 50, "y": 100 },
+            "data": { "file": "" }
+        },
+        {
+            "id": "node_2",
+            "type": "checkpoint_loader",
+            "position": { "x": 50, "y": 300 },
+            "data": { "file": "" }
+        },
+        {
+            "id": "node_3",
+            "type": "merge_models",
+            "position": { "x": 350, "y": 180 },
+            "data": {
+                "algorithm": "weighted_sum",
+                "params": { "alpha": 0.5 },
+                "use_mbw": false,
+                "mbw_weights": {}
+            }
+        },
+        {
+            "id": "node_4",
+            "type": "lora_loader",
+            "position": { "x": 350, "y": 400 },
+            "data": { "file": "", "strength": 0.8 }
+        },
+        {
+            "id": "node_5",
+            "type": "apply_lora",
+            "position": { "x": 620, "y": 250 },
+            "data": { "strength": 0.8 }
+        },
+        {
+            "id": "node_6",
+            "type": "save_checkpoint",
+            "position": { "x": 880, "y": 250 },
+            "data": {
+                "filename": "my_merged_model",
+                "dtype": "fp16",
+                "metadata": {
+                    "author": "SDXL Node Merger",
+                    "description": "Example merged model"
+                }
+            }
+        }
+    ],
+    "connections": [
+        {
+            "from": { "node": "node_1", "output": "MODEL" },
+            "to": { "node": "node_3", "input": "MODEL_A" },
+            "type": "MODEL"
+        },
+        {
+            "from": { "node": "node_2", "output": "MODEL" },
+            "to": { "node": "node_3", "input": "MODEL_B" },
+            "type": "MODEL"
+        },
+        {
+            "from": { "node": "node_3", "output": "MODEL" },
+            "to": { "node": "node_5", "input": "MODEL" },
+            "type": "MODEL"
+        },
+        {
+            "from": { "node": "node_4", "output": "LORA" },
+            "to": { "node": "node_5", "input": "LORA" },
+            "type": "LORA"
+        },
+        {
+            "from": { "node": "node_5", "output": "MODEL" },
+            "to": { "node": "node_6", "input": "MODEL" },
+            "type": "MODEL"
+        }
+    ]
+}

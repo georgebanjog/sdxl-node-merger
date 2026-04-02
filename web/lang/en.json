@@ -1,0 +1,93 @@
+{
+    "_name": "English",
+    "_code": "en",
+    "toolbar": {
+        "new_project": "New Project",
+        "open_project": "Open Project",
+        "save_project": "Save Project",
+        "save": "Save",
+        "undo": "Undo",
+        "redo": "Redo",
+        "execute": "Execute Merge",
+        "settings": "Settings",
+        "language": "Language",
+        "theme": "Theme",
+        "confirm_new": "Create a new project? Unsaved changes will be lost.",
+        "new_created": "New project created",
+        "no_projects": "No saved projects",
+        "project_name": "Project Name",
+        "saved": "Project saved!",
+        "validation_failed": "Validation failed",
+        "execution_started": "Merge execution started!",
+        "merge_complete": "Merge complete!",
+        "merge_failed": "Merge failed"
+    },
+    "canvas": {
+        "search_nodes": "Search nodes..."
+    },
+    "nodes": {
+        "checkpoint_loader": "Checkpoint Loader",
+        "lora_loader": "LoRA Loader",
+        "vae_loader": "VAE Loader",
+        "merge_models": "Merge Models",
+        "apply_lora": "Apply LoRA",
+        "replace_vae": "Replace VAE",
+        "save_checkpoint": "Save Checkpoint",
+        "metadata_editor": "Metadata Editor",
+        "note": "Note",
+        "select_file": "Click to select file...",
+        "note_placeholder": "Write a note..."
+    },
+    "categories": {
+        "source": "Sources",
+        "processing": "Processing",
+        "output": "Output",
+        "utility": "Utility"
+    },
+    "sidebar": {
+        "properties": "Properties",
+        "select_node": "Select a node to see its properties",
+        "node_info": "Node Info",
+        "type": "Type",
+        "file": "File",
+        "select_file": "— Select file —",
+        "no_files_found": "No files found (check settings)",
+        "strength": "Strength",
+        "algorithm": "Algorithm",
+        "parameters": "Parameters",
+        "mbw": "Block Weights (MBW)",
+        "enable_mbw": "Enable per-block weights",
+        "set_all": "Set All",
+        "output": "Output File",
+        "precision": "Precision",
+        "metadata": "Custom Metadata",
+        "add_field": "Add Field"
+    },
+    "settings": {
+        "directories": "Directories",
+        "checkpoints": "Checkpoints",
+        "lora": "LoRA",
+        "vae": "VAE",
+        "output": "Output",
+        "select_directory": "Select directory...",
+        "browse": "Browse",
+        "use_this": "Use this directory",
+        "merge": "Merge Settings",
+        "device": "Device",
+        "default_dtype": "Default Precision",
+        "low_vram": "Low VRAM Mode (slower, less memory)",
+        "save": "Save Settings",
+        "saved": "Settings saved!"
+    },
+    "status": {
+        "connected": "Connected",
+        "disconnected": "Disconnected",
+        "nodes": "nodes",
+        "connections": "connections"
+    },
+    "context": {
+        "duplicate": "Duplicate",
+        "select_connected": "Select Connected",
+        "delete": "Delete"
+    }
+}

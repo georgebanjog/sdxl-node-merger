@@ -1,0 +1,93 @@
+{
+    "_name": "Русский",
+    "_code": "ru",
+    "toolbar": {
+        "new_project": "Новый проект",
+        "open_project": "Открыть проект",
+        "save_project": "Сохранить проект",
+        "save": "Сохранить",
+        "undo": "Отменить",
+        "redo": "Повторить",
+        "execute": "Выполнить мердж",
+        "settings": "Настройки",
+        "language": "Язык",
+        "theme": "Тема",
+        "confirm_new": "Создать новый проект? Несохранённые изменения будут потеряны.",
+        "new_created": "Новый проект создан",
+        "no_projects": "Нет сохранённых проектов",
+        "project_name": "Название проекта",
+        "saved": "Проект сохранён!",
+        "validation_failed": "Ошибка валидации",
+        "execution_started": "Мерджинг запущен!",
+        "merge_complete": "Мердж завершён!",
+        "merge_failed": "Ошибка мерджинга"
+    },
+    "canvas": {
+        "search_nodes": "Поиск нод..."
+    },
+    "nodes": {
+        "checkpoint_loader": "Загрузчик чекпоинта",
+        "lora_loader": "Загрузчик LoRA",
+        "vae_loader": "Загрузчик VAE",
+        "merge_models": "Мердж моделей",
+        "apply_lora": "Применить LoRA",
+        "replace_vae": "Заменить VAE",
+        "save_checkpoint": "Сохранить чекпоинт",
+        "metadata_editor": "Редактор метаданных",
+        "note": "Заметка",
+        "select_file": "Нажмите для выбора файла...",
+        "note_placeholder": "Написать заметку..."
+    },
+    "categories": {
+        "source": "Источники",
+        "processing": "Обработка",
+        "output": "Выход",
+        "utility": "Утилиты"
+    },
+    "sidebar": {
+        "properties": "Свойства",
+        "select_node": "Выберите ноду для просмотра свойств",
+        "node_info": "Информация о ноде",
+        "type": "Тип",
+        "file": "Файл",
+        "select_file": "— Выберите файл —",
+        "no_files_found": "Файлы не найдены (проверьте настройки)",
+        "strength": "Сила",
+        "algorithm": "Алгоритм",
+        "parameters": "Параметры",
+        "mbw": "Блочные веса (MBW)",
+        "enable_mbw": "Включить поблочные веса",
+        "set_all": "Задать все",
+        "output": "Выходной файл",
+        "precision": "Точность",
+        "metadata": "Метаданные",
+        "add_field": "Добавить поле"
+    },
+    "settings": {
+        "directories": "Директории",
+        "checkpoints": "Чекпоинты",
+        "lora": "LoRA",
+        "vae": "VAE",
+        "output": "Выходная папка",
+        "select_directory": "Выберите директорию...",
+        "browse": "Обзор",
+        "use_this": "Использовать эту папку",
+        "merge": "Настройки мерджинга",
+        "device": "Устройство",
+        "default_dtype": "Точность по умолчанию",
+        "low_vram": "Режим экономии VRAM (медленнее, меньше памяти)",
+        "save": "Сохранить настройки",
+        "saved": "Настройки сохранены!"
+    },
+    "status": {
+        "connected": "Подключено",
+        "disconnected": "Отключено",
+        "nodes": "нод",
+        "connections": "связей"
+    },
+    "context": {
+        "duplicate": "Дублировать",
+        "select_connected": "Выделить связанные",
+        "delete": "Удалить"
+    }
+}

@@ -1,0 +1,24 @@
+# Virtual environment
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Models (too large for git)
+*.safetensors
+*.ckpt
+*.pt
+
+# Config (user-specific)
+config.json

@@ -1,0 +1,321 @@
+/* ═══════════════════════════════════════════════════════════════
+   SDXL Node Merger — Node Editor Styles
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─── Node Base ─────────────────────────────────────────────── */
+.node {
+    position: absolute;
+    min-width: 200px;
+    background: var(--surface-glass);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    cursor: default;
+    transition: box-shadow var(--transition-fast), border-color var(--transition-fast);
+    animation: nodeAppear 0.25s ease;
+}
+@keyframes nodeAppear {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.node:hover {
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-lg);
+}
+
+.node.selected {
+    border-color: var(--accent-primary);
+    box-shadow: var(--shadow-lg), 0 0 0 2px var(--accent-primary-glow);
+}
+
+.node.dragging {
+    opacity: 0.9;
+    z-index: 1000 !important;
+    cursor: grabbing;
+}
+
+.node.node-error {
+    border-color: var(--accent-danger);
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
+}
+
+.node.node-executing {
+    border-color: var(--accent-primary);
+    animation: nodeExecuting 1.5s ease-in-out infinite;
+}
+@keyframes nodeExecuting {
+    0%, 100% { box-shadow: var(--shadow-md), 0 0 15px var(--accent-primary-glow); }
+    50% { box-shadow: var(--shadow-lg), 0 0 30px var(--accent-primary-glow); }
+}
+
+/* ─── Node Header ───────────────────────────────────────────── */
+.node-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    cursor: grab;
+    position: relative;
+    overflow: hidden;
+}
+.node-header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.12;
+    border-radius: inherit;
+}
+
+.node-header-icon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.node-header-title {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Category-specific header colors */
+.node-category-source .node-header::before { background: var(--node-checkpoint); }
+.node-category-source .node-header-icon { color: var(--node-checkpoint); }
+
+.node-type-checkpoint_loader .node-header::before { background: var(--node-checkpoint); }
+.node-type-checkpoint_loader .node-header-icon { color: var(--node-checkpoint); }
+
+.node-type-lora_loader .node-header::before { background: var(--node-lora); }
+.node-type-lora_loader .node-header-icon { color: var(--node-lora); }
+
+.node-type-vae_loader .node-header::before { background: var(--node-vae); }
+.node-type-vae_loader .node-header-icon { color: var(--node-vae); }
+
+.node-type-merge_models .node-header::before { background: var(--node-merge); }
+.node-type-merge_models .node-header-icon { color: var(--node-merge); }
+
+.node-type-apply_lora .node-header::before { background: var(--node-lora); }
+.node-type-apply_lora .node-header-icon { color: var(--node-lora); }
+
+.node-type-replace_vae .node-header::before { background: var(--node-vae); }
+.node-type-replace_vae .node-header-icon { color: var(--node-vae); }
+
+.node-type-save_checkpoint .node-header::before { background: var(--node-output); }
+.node-type-save_checkpoint .node-header-icon { color: var(--node-output); }
+
+.node-type-metadata_editor .node-header::before { background: var(--node-utility); }
+.node-type-metadata_editor .node-header-icon { color: var(--node-utility); }
+
+.node-type-note .node-header::before { background: var(--node-utility); }
+.node-type-note .node-header-icon { color: var(--node-utility); }
+
+/* ─── Node Body ─────────────────────────────────────────────── */
+.node-body {
+    padding: var(--space-sm) 0;
+}
+
+/* ─── Node Ports ────────────────────────────────────────────── */
+.node-port-row {
+    display: flex;
+    align-items: center;
+    padding: 3px var(--space-md);
+    position: relative;
+}
+
+.node-port-row.input-row {
+    justify-content: flex-start;
+}
+.node-port-row.output-row {
+    justify-content: flex-end;
+}
+
+.node-port {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid;
+    background: var(--bg-secondary);
+    cursor: crosshair;
+    position: absolute;
+    transition: all var(--transition-fast);
+    z-index: 10;
+}
+.node-port:hover {
+    transform: scale(1.4);
+    box-shadow: 0 0 8px currentColor;
+}
+
+.node-port.input-port {
+    left: -6px;
+}
+.node-port.output-port {
+    right: -6px;
+}
+
+.node-port.connected {
+    background: currentColor;
+}
+
+/* Port type colors */
+.node-port.port-MODEL {
+    border-color: var(--conn-model);
+    color: var(--conn-model);
+}
+.node-port.port-LORA {
+    border-color: var(--conn-lora);
+    color: var(--conn-lora);
+}
+.node-port.port-VAE {
+    border-color: var(--conn-vae);
+    color: var(--conn-vae);
+}
+
+.node-port-label {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    padding: 0 var(--space-sm);
+}
+
+/* ─── Node Inline Controls ──────────────────────────────────── */
+.node-control {
+    padding: 3px var(--space-md);
+}
+
+.node-control select,
+.node-control input[type="text"] {
+    width: 100%;
+    padding: 3px var(--space-sm);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+}
+.node-control select:focus,
+.node-control input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.node-file-display {
+    padding: 3px var(--space-sm);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+.node-file-display:hover {
+    border-color: var(--border-default);
+    color: var(--text-primary);
+}
+.node-file-display.no-file {
+    color: var(--text-tertiary);
+    font-style: italic;
+}
+
+/* ─── Note Node ─────────────────────────────────────────────── */
+.node-type-note {
+    min-width: 160px;
+    max-width: 300px;
+}
+.node-type-note .node-body {
+    padding: var(--space-sm) var(--space-md);
+}
+.node-note-text {
+    width: 100%;
+    min-height: 40px;
+    padding: var(--space-xs);
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+    resize: vertical;
+    outline: none;
+    font-family: var(--font-sans);
+    line-height: 1.4;
+}
+
+/* ─── Connection Lines (SVG) ────────────────────────────────── */
+.connection-line {
+    fill: none;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    transition: stroke-width var(--transition-fast), filter var(--transition-fast);
+}
+.connection-line:hover {
+    stroke-width: 4;
+    filter: drop-shadow(0 0 6px currentColor);
+    cursor: pointer;
+}
+
+.connection-line.conn-MODEL { stroke: var(--conn-model); }
+.connection-line.conn-LORA { stroke: var(--conn-lora); }
+.connection-line.conn-VAE { stroke: var(--conn-vae); }
+
+.connection-preview {
+    fill: none;
+    stroke-width: 2;
+    stroke-dasharray: 8, 4;
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* ─── Selection Box ─────────────────────────────────────────── */
+.selection-box {
+    position: absolute;
+    border: 1px solid var(--accent-primary);
+    background: rgba(59, 130, 246, 0.08);
+    pointer-events: none;
+    z-index: 1000;
+}
+
+/* ─── Node Resize Handle ───────────────────────────────────── */
+.node-resize {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 12px;
+    height: 12px;
+    cursor: nwse-resize;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+.node:hover .node-resize {
+    opacity: 1;
+}
+
+/* ─── Port Tooltip ──────────────────────────────────────────── */
+.port-tooltip {
+    position: absolute;
+    padding: 2px 6px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    color: var(--text-primary);
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 2000;
+    animation: tooltipFade 0.15s ease;
+}
+@keyframes tooltipFade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}

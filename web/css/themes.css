@@ -1,0 +1,110 @@
+/* ═══════════════════════════════════════════════════════════════
+   SDXL Node Merger — Themes (CSS Custom Properties)
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+    /* ─── Base Colors (Midnight theme default) ─── */
+    --bg-primary: #0a0e17;
+    --bg-secondary: #111827;
+    --bg-tertiary: #1a2235;
+    --bg-elevated: #1e293b;
+    --bg-hover: #253347;
+    --bg-active: #2d3f56;
+
+    /* ─── Surface / Glass ─── */
+    --surface-glass: rgba(17, 24, 39, 0.85);
+    --surface-glass-border: rgba(255, 255, 255, 0.08);
+    --surface-glass-hover: rgba(30, 41, 59, 0.9);
+
+    /* ─── Text ─── */
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-tertiary: #64748b;
+    --text-accent: #60a5fa;
+    --text-on-accent: #ffffff;
+
+    /* ─── Accent Colors ─── */
+    --accent-primary: #3b82f6;
+    --accent-primary-hover: #60a5fa;
+    --accent-primary-glow: rgba(59, 130, 246, 0.3);
+    --accent-secondary: #8b5cf6;
+    --accent-success: #22c55e;
+    --accent-warning: #f59e0b;
+    --accent-danger: #ef4444;
+
+    /* ─── Node Colors ─── */
+    --node-checkpoint: #4A9EFF;
+    --node-checkpoint-bg: rgba(74, 158, 255, 0.08);
+    --node-lora: #FF6B9E;
+    --node-lora-bg: rgba(255, 107, 158, 0.08);
+    --node-vae: #9B59B6;
+    --node-vae-bg: rgba(155, 89, 182, 0.08);
+    --node-merge: #2ECC71;
+    --node-merge-bg: rgba(46, 204, 113, 0.08);
+    --node-output: #F39C12;
+    --node-output-bg: rgba(243, 156, 18, 0.08);
+    --node-utility: #95A5A6;
+    --node-utility-bg: rgba(149, 165, 166, 0.08);
+
+    /* ─── Connection Colors ─── */
+    --conn-model: #4A9EFF;
+    --conn-lora: #FF6B9E;
+    --conn-vae: #9B59B6;
+
+    /* ─── Canvas ─── */
+    --canvas-bg: #080c14;
+    --canvas-grid: rgba(255, 255, 255, 0.03);
+    --canvas-grid-major: rgba(255, 255, 255, 0.06);
+
+    /* ─── Borders ─── */
+    --border-subtle: rgba(255, 255, 255, 0.06);
+    --border-default: rgba(255, 255, 255, 0.1);
+    --border-strong: rgba(255, 255, 255, 0.15);
+    --border-focus: var(--accent-primary);
+
+    /* ─── Shadows ─── */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+    --shadow-glow: 0 0 20px var(--accent-primary-glow);
+
+    /* ─── Typography ─── */
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    --font-size-xs: 0.6875rem;
+    --font-size-sm: 0.75rem;
+    --font-size-base: 0.8125rem;
+    --font-size-md: 0.875rem;
+    --font-size-lg: 1rem;
+    --font-size-xl: 1.25rem;
+
+    /* ─── Spacing ─── */
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 12px;
+    --space-lg: 16px;
+    --space-xl: 24px;
+    --space-2xl: 32px;
+
+    /* ─── Border Radius ─── */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    --radius-full: 9999px;
+
+    /* ─── Transitions ─── */
+    --transition-fast: 0.15s ease;
+    --transition-base: 0.25s ease;
+    --transition-slow: 0.4s ease;
+
+    /* ─── Z-Index ─── */
+    --z-canvas: 1;
+    --z-connections: 5;
+    --z-nodes: 10;
+    --z-sidebar: 100;
+    --z-toolbar: 200;
+    --z-context-menu: 500;
+    --z-modal: 1000;
+    --z-toast: 2000;
+}

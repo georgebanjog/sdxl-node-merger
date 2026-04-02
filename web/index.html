@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SDXL Node Merger — Visual node-based model merging tool for Stable Diffusion XL">
+    <title>SDXL Node Merger</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/themes.css">
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/nodes.css">
+</head>
+<body>
+    <!-- ─── Top Toolbar ─────────────────────────────────────────── -->
+    <header id="toolbar">
+        <div class="toolbar-left">
+            <div class="logo">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                    <circle cx="14" cy="14" r="12" stroke="var(--accent-primary)" stroke-width="2" fill="none"/>
+                    <circle cx="14" cy="14" r="5" fill="var(--accent-primary)"/>
+                    <path d="M14 2 L14 8 M14 20 L14 26 M2 14 L8 14 M20 14 L26 14" stroke="var(--accent-primary)" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                <span class="logo-text">SDXL Node Merger</span>
+            </div>
+            <div class="toolbar-separator"></div>
+            <div class="toolbar-group">
+                <button id="btn-new-project" class="toolbar-btn" data-i18n-title="toolbar.new_project">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                </button>
+                <button id="btn-open-project" class="toolbar-btn" data-i18n-title="toolbar.open_project">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                </button>
+                <button id="btn-save-project" class="toolbar-btn" data-i18n-title="toolbar.save_project">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                </button>
+            </div>
+            <div class="toolbar-separator"></div>
+            <div class="toolbar-group">
+                <button id="btn-undo" class="toolbar-btn" data-i18n-title="toolbar.undo">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                </button>
+                <button id="btn-redo" class="toolbar-btn" data-i18n-title="toolbar.redo">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10"/></svg>
+                </button>
+            </div>
+        </div>
+        <div class="toolbar-center">
+            <button id="btn-execute" class="toolbar-btn execute-btn" data-i18n-title="toolbar.execute">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                <span data-i18n="toolbar.execute">Execute Merge</span>
+            </button>
+        </div>
+        <div class="toolbar-right">
+            <div class="toolbar-group">
+                <select id="select-language" class="toolbar-select" data-i18n-title="toolbar.language">
+                </select>
+                <select id="select-theme" class="toolbar-select" data-i18n-title="toolbar.theme">
+                </select>
+            </div>
+            <div class="toolbar-separator"></div>
+            <button id="btn-settings" class="toolbar-btn" data-i18n-title="toolbar.settings">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- ─── Main Container ──────────────────────────────────────── -->
+    <main id="main-container">
+        <!-- ─── Canvas Area ─────────────────────────────────────── -->
+        <div id="canvas-wrapper">
+            <div id="canvas-bg"></div>
+            <div id="canvas-viewport">
+                <svg id="connections-svg"></svg>
+                <!-- Nodes rendered here dynamically -->
+            </div>
+            <!-- Canvas info overlay -->
+            <div id="canvas-info">
+                <span id="zoom-level">100%</span>
+            </div>
+            <!-- Quick add menu (on double-click) -->
+            <div id="quick-add-menu" class="hidden">
+                <input type="text" id="quick-add-search" placeholder="Search nodes..." data-i18n-placeholder="canvas.search_nodes">
+                <div id="quick-add-list"></div>
+            </div>
+        </div>
+
+        <!-- ─── Right Sidebar ───────────────────────────────────── -->
+        <div id="sidebar" class="sidebar-collapsed">
+            <div id="sidebar-toggle">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            </div>
+            <div id="sidebar-content">
+                <div id="sidebar-header">
+                    <h3 id="sidebar-title" data-i18n="sidebar.properties">Properties</h3>
+                </div>
+                <div id="sidebar-body">
+                    <div id="no-selection" class="sidebar-placeholder">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+                        <p data-i18n="sidebar.select_node">Select a node to see its properties</p>
+                    </div>
+                    <div id="node-properties" class="hidden">
+                        <!-- Filled dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ─── Status Bar ──────────────────────────────────────────── -->
+    <footer id="statusbar">
+        <div class="status-left">
+            <span id="status-connection" class="status-indicator" title="Server connection">
+                <span class="status-dot"></span>
+                <span data-i18n="status.connected">Connected</span>
+            </span>
+            <span class="status-separator">|</span>
+            <span id="status-device"></span>
+        </div>
+        <div class="status-center">
+            <div id="progress-container" class="hidden">
+                <div id="progress-bar">
+                    <div id="progress-fill"></div>
+                </div>
+                <span id="progress-text"></span>
+            </div>
+        </div>
+        <div class="status-right">
+            <span id="status-nodes">0 <span data-i18n="status.nodes">nodes</span></span>
+            <span class="status-separator">|</span>
+            <span id="status-connections">0 <span data-i18n="status.connections">connections</span></span>
+            <span class="status-separator">|</span>
+            <span class="status-author">by George Kogan</span>
+        </div>
+    </footer>
+
+    <!-- ─── Modal Overlay ───────────────────────────────────────── -->
+    <div id="modal-overlay" class="hidden">
+        <div id="modal-container">
+            <div id="modal-header">
+                <h3 id="modal-title"></h3>
+                <button id="modal-close" class="modal-close-btn">×</button>
+            </div>
+            <div id="modal-body"></div>
+            <div id="modal-footer"></div>
+        </div>
+    </div>
+
+    <!-- ─── Toast Notifications ─────────────────────────────────── -->
+    <div id="toast-container"></div>
+
+    <!-- ─── Context Menu ────────────────────────────────────────── -->
+    <div id="context-menu" class="hidden">
+        <div id="context-menu-items"></div>
+    </div>
+
+    <!-- ─── Scripts ─────────────────────────────────────────────── -->
+    <script src="js/i18n.js"></script>
+    <script src="js/themes.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/connections.js"></script>
+    <script src="js/nodes.js"></script>
+    <script src="js/sidebar.js"></script>
+    <script src="js/toolbar.js"></script>
+    <script src="js/project.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
