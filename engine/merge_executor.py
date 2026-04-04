@@ -20,18 +20,31 @@ from . import metadata as meta_utils
 import json
 import struct
 
+from collections import OrderedDict
+
 class FileRegistry:
     def __init__(self):
-        self._handles = {}
+        self._handles = OrderedDict()
         self._headers = {}
+        self._max_handles = 3
         
     def get_handle(self, filepath, device="cpu"):
-        if filepath not in self._handles:
-            self._handles[filepath] = tensor_io.safe_open(filepath, framework="pt", device=device)
-        return self._handles[filepath]
+        if filepath in self._handles:
+            self._handles.move_to_end(filepath)
+            return self._handles[filepath]
+            
+        if len(self._handles) >= self._max_handles:
+            self._handles.popitem(last=False)
+            import gc
+            gc.collect()
+            
+        # Force CPU for safe_open to avoid Windows CUDA mmap handle exhaustion limits
+        h = tensor_io.safe_open(filepath, framework="pt", device="cpu")
+        self._handles[filepath] = h
+        return h
         
     def get_tensor(self, filepath, key, device="cpu"):
-        h = self.get_handle(filepath, device=device)
+        h = self.get_handle(filepath)
         return h.get_tensor(key)
         
     def get_shape_and_dtype(self, filepath, key):
@@ -94,7 +107,9 @@ def _evaluate_lazy_tensor(node_id, key, state, registry, device):
         return node["state_dict"].get(key)
     elif ntype in ("checkpoint_ref", "vae_ref"):
         if key in node["keys"]:
-            return registry.get_tensor(node["path"], key, device=device)
+            t = registry.get_tensor(node["path"], key, device="cpu")
+            if t is not None:
+                return t.to(device)
         return None
     elif ntype == "lazy_merged":
         all_keys = node["keys"]
@@ -606,10 +621,13 @@ def _execute_apply_lora(state, lora_cache, node_id, params, device, low_vram, pr
     """Apply LoRA to a model."""
     model_src = params["model_source"]
     lora_src = params["lora_source"]
-    strength = params.get("strength", 1.0)
+    apply_strength = params.get("strength", 1.0)
     
     src_state = state.get(model_src)
     lora_state = state.get(lora_src)
+    
+    lora_base_strength = lora_state.get("strength", 1.0) if lora_state else 1.0
+    strength = apply_strength * lora_base_strength
     
     if not src_state or not lora_state:
         raise ValueError("Missing model or LoRA source for apply_lora")
@@ -802,5 +820,19 @@ def _execute_save(state, node_id, params, output_dir, progress, registry, device
     file_size = os.path.getsize(output_path)
     size_gb = file_size / (1024**3)
     progress.log(f"  ✓ Saved: {size_gb:.2f} GB")
+    
+    if low_vram and src_state["type"] in ("lazy_merged", "lazy_apply_lora", "lazy_replace_vae", "checkpoint_ref"):
+        state[node_id] = {
+            "type": "checkpoint_ref",
+            "path": output_path,
+            "keys": src_state.get("keys", []),
+            "metadata": model_metadata,
+        }
+    elif src_state["type"] in ("checkpoint", "merged"):
+        state[node_id] = {
+            "type": "checkpoint",
+            "state_dict": src_state["state_dict"],
+            "metadata": model_metadata,
+        }
     
     return output_path

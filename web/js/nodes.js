@@ -80,7 +80,7 @@ window.Nodes = (() => {
             title: 'nodes.save_checkpoint',
             category: 'output',
             inputs: [{ name: 'MODEL', type: 'MODEL' }],
-            outputs: [],
+            outputs: [{ name: 'MODEL', type: 'MODEL' }],
             defaults: { filename: 'merged_model', dtype: 'fp16', metadata: {} },
         },
         metadata_editor: {

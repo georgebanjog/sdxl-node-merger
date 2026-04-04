@@ -307,6 +307,14 @@ def save_model_lazy_streaming(
                 raw_bytes = tensor.numpy().tobytes()
                 
             f.write(raw_bytes)
+            
+            del tensor
+            del raw_bytes
+            if ki % 100 == 0:
+                import gc
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
 
 
 def get_model_type_info(filepath: str) -> dict:

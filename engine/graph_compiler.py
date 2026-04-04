@@ -62,7 +62,7 @@ NODE_TYPES = {
     "save_checkpoint": {
         "category": "output",
         "inputs": [{"name": "MODEL", "type": "MODEL"}],
-        "outputs": [],
+        "outputs": [{"name": "MODEL", "type": "MODEL"}],
         "data_fields": ["filename", "dtype", "metadata"],
     },
     "metadata_editor": {
