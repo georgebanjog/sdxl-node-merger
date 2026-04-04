@@ -204,15 +204,15 @@ python server.py
 |-----------|:-:|-------------|
 | **Weighted Sum** | 2 | `A * (1 - α) + B * α` — Simple linear interpolation |
 | **Add Difference** | 3 | `A + (B - C) * α` — Transfer style from B relative to C |
-| **Tensor Sum** | 2 | Sum with scaling factor |
-| **TIES Merge** | 2-3 | Trim, Elect Sign & Merge — removes noise, resolves sign conflicts |
-| **DARE Merge** | 2-3 | Drop And REscale — sparsifies updates for cleaner merges |
-| **Similarity Merge** | 2 | Weighted by cosine similarity of parameter deltas |
-| **SLERP** | 2 | Spherical linear interpolation — smoother than linear in high dimensions |
-| **Train Difference** | 3 | Extracts and applies training deltas |
-| **Cosine Merge** | 2 | Cosine similarity-weighted blending |
-| **Distribution Merge** | 2 | Matches statistical distributions of weights |
-| **Gradient Merge** | 2 | Gradient magnitude-aware merging |
+| **Sum** | 2 | `A + B * α` — Add model B scaled by alpha |
+| **Tensor Sum** | 2 | Weighted sum with optional normalization |
+| **TIES Merge** | 3 | TrIm, Elect Sign, and merge — preserves important weights |
+| **DARE Merge** | 3 | Drop And REscale — randomly drops deltas with rescaling |
+| **Cosine Merge** | 2 | Adaptive merging based on cosine similarity between tensors |
+| **Train Difference** | 3 | Extract training delta with optional clipping |
+| **Distribution Merge** | 2 | Align statistical distributions (mean and variance) between models |
+| **Smoothed Add Difference** | 3 | Add Difference with Gaussian smoothing on deltas |
+| **Multiply Difference** | 2 | Scale model weights multiplicatively: `A × (1 + (B/A - 1) * α)` |
 
 > [!NOTE]
 > All algorithms support **Merge Block Weighted (MBW)** mode, allowing per-block α values for fine-grained control over the SDXL U-Net architecture.

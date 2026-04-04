@@ -185,7 +185,34 @@ def execute_plan(
             results["steps_completed"] = i + 1
             progress.log(f"✓ Step {i+1} completed: {step_type}")
             
-            # Clean up GPU memory
+            # ── Intelligent memory cleanup ──────────────────────────────
+            # Free state entries that are no longer needed by remaining steps.
+            # This is critical for VRAM: without it, two SDXL models (~13GB)
+            # stay in memory even after the merge consumes them.
+            remaining_steps = steps[i + 1:]
+            referenced_ids = set()
+            for future_step in remaining_steps:
+                fs = future_step.to_dict() if hasattr(future_step, 'to_dict') else future_step
+                fp = fs.get("params", {})
+                # Collect all node IDs referenced by future steps
+                referenced_ids.add(fs.get("node_id", ""))
+                referenced_ids.add(fp.get("model_source", ""))
+                referenced_ids.add(fp.get("lora_source", ""))
+                referenced_ids.add(fp.get("vae_source", ""))
+                for v in fp.get("model_inputs", {}).values():
+                    referenced_ids.add(v)
+            referenced_ids.discard("")
+            
+            # Free unreferenced state entries
+            stale_ids = [sid for sid in state if sid not in referenced_ids]
+            for sid in stale_ids:
+                entry = state.pop(sid)
+                # Explicitly delete large data reference (do not use .clear() to preserve aliased dictionaries)
+                if "state_dict" in entry:
+                    del entry["state_dict"]
+                entry.clear()
+                progress.log(f"  🗑 Freed memory: node {sid}")
+            
             if device == "cuda":
                 torch.cuda.empty_cache()
             gc.collect()
@@ -478,9 +505,9 @@ def _execute_apply_lora(state, lora_cache, node_id, params, device, low_vram, pr
     progress.log(f"Applying LoRA (strength={strength})")
     
     if src_state["type"] in ("checkpoint", "merged"):
-        # Full mode: apply directly to state dict
+        # Full mode: apply to a new state dict to avoid mutating source node (prevents issues on branched graphs)
         lora_data = lora_state["data"]
-        model_dict = src_state["state_dict"]
+        model_dict = src_state["state_dict"].copy()
         
         applied = 0
         total = len(lora_data)
@@ -604,6 +631,8 @@ def _execute_edit_metadata(state, node_id, params, progress):
     
     state[node_id] = dict(src_state)
     state[node_id]["metadata"] = existing_md
+    if "state_dict" in src_state:
+        state[node_id]["state_dict"] = src_state["state_dict"].copy()
     progress.log(f"  Metadata updated ({len(new_metadata)} fields)")
 
 

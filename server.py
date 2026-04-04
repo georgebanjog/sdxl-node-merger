@@ -573,13 +573,33 @@ def main():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
+    ws_server = None
     try:
         ws_server = loop.run_until_complete(start_ws_server(host, ws_port))
         loop.run_forever()
     except KeyboardInterrupt:
         print("\nShutting down...")
     finally:
+        # Stop WebSocket server
+        if ws_server:
+            ws_server.close()
+            loop.run_until_complete(ws_server.wait_closed())
+        
+        # Stop HTTP server
+        httpd.shutdown()
+        
+        # Cancel remaining async tasks
+        pending = asyncio.all_tasks(loop)
+        for task in pending:
+            task.cancel()
+        if pending:
+            loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+        
         loop.close()
+        print("  Server stopped.")
+        
+        # Force exit — daemon threads and sockets can linger on Windows
+        os._exit(0)
 
 
 if __name__ == "__main__":

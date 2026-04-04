@@ -370,3 +370,7 @@ def multiply_difference(tensors: list[torch.Tensor], params: dict) -> torch.Tens
     result = a * (1.0 + (ratio - 1.0) * alpha)
     
     return result.to(tensors[0].dtype)
+
+
+
+

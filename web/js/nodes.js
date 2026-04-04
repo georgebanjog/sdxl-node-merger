@@ -223,6 +223,10 @@ window.Nodes = (() => {
         header.addEventListener('mousedown', (e) => {
             if (e.button !== 0) return;
             e.stopPropagation();
+            if (e.shiftKey) {
+                toggleSelect(node.id);
+                if (!selectedNodes.has(node.id)) return;
+            }
             startDragNode(node, e);
         });
 
@@ -592,11 +596,14 @@ window.Nodes = (() => {
 
     function copySelected() {
         if (selectedNodes.size === 0) return;
+        
         const nodesCopy = [];
+        const selectedIds = new Set(selectedNodes);
         for (const nid of selectedNodes) {
             const n = nodes[nid];
             if (n) {
                 nodesCopy.push({
+                    originalId: nid,
                     type: n.type,
                     x: n.x,
                     y: n.y,
@@ -604,17 +611,53 @@ window.Nodes = (() => {
                 });
             }
         }
-        clipboard = nodesCopy;
+        
+        const connsCopy = [];
+        if (window.Connections) {
+            const allConns = Connections.getAll();
+            for (const c of allConns) {
+                if (selectedIds.has(c.fromNode) && selectedIds.has(c.toNode)) {
+                    connsCopy.push({
+                        fromNode: c.fromNode,
+                        fromOutput: c.fromOutput,
+                        toNode: c.toNode,
+                        toInput: c.toInput,
+                        type: c.type
+                    });
+                }
+            }
+        }
+        
+        clipboard = { nodes: nodesCopy, connections: connsCopy };
     }
 
     function pasteNodes() {
         if (!clipboard) return;
+        
+        const nodesToPaste = Array.isArray(clipboard) ? clipboard : (clipboard.nodes || []);
+        const connsToPaste = Array.isArray(clipboard) ? [] : (clipboard.connections || []);
+        
+        if (nodesToPaste.length === 0) return;
+        
         deselectAll();
-        for (const nc of clipboard) {
+        const idMap = {};
+        
+        for (const nc of nodesToPaste) {
             const node = createNode(nc.type, nc.x + 40, nc.y + 40, JSON.parse(JSON.stringify(nc.data)));
             if (node) {
+                if (nc.originalId) idMap[nc.originalId] = node.id;
                 selectedNodes.add(node.id);
                 node.element.classList.add('selected');
+            }
+        }
+        
+        if (window.Connections && connsToPaste.length > 0) {
+            for (const c of connsToPaste) {
+                const newFrom = idMap[c.fromNode];
+                const newTo = idMap[c.toNode];
+                if (newFrom && newTo) {
+                    Connections.addConnection(newFrom, c.fromOutput, newTo, c.toInput, c.type);
+                }
             }
         }
     }
