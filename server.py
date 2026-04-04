@@ -82,6 +82,7 @@ config = load_config()
 # ─── WebSocket Clients ──────────────────────────────────────────────────────────
 
 ws_clients = set()
+MAIN_LOOP = None
 
 
 async def ws_broadcast(message: dict):
@@ -99,18 +100,13 @@ async def ws_broadcast(message: dict):
 
 
 def ws_broadcast_sync(message: dict):
-    """Broadcast from a synchronous context (used by merge executor)."""
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            asyncio.ensure_future(ws_broadcast(message))
-        else:
-            loop.run_until_complete(ws_broadcast(message))
-    except RuntimeError:
-        # No event loop in this thread — create one temporarily
-        loop = asyncio.new_event_loop()
-        loop.run_until_complete(ws_broadcast(message))
-        loop.close()
+    """Broadcast from a synchronous context to the main event loop."""
+    global MAIN_LOOP
+    if MAIN_LOOP and MAIN_LOOP.is_running():
+        try:
+            asyncio.run_coroutine_threadsafe(ws_broadcast(message), MAIN_LOOP)
+        except Exception:
+            pass
 
 
 # ─── HTTP Request Handler ───────────────────────────────────────────────────────
@@ -408,11 +404,7 @@ class MergerHTTPHandler(SimpleHTTPRequestHandler):
 
     def _execute_merge(self, graph_data: dict):
         """Execute merge in background thread with WebSocket progress."""
-        import asyncio
         import traceback
-
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
 
         def progress_callback(progress_data):
             """Send progress updates via WebSocket and terminal."""
@@ -425,10 +417,8 @@ class MergerHTTPHandler(SimpleHTTPRequestHandler):
                 print(f"  [{step_num}/{total}] {pct:.0f}% — {step_info}")
             elif msg_type == "log":
                 print(f"  [LOG] {progress_data.get('message', '')}")
-            try:
-                loop.run_until_complete(ws_broadcast(progress_data))
-            except Exception:
-                pass
+            
+            ws_broadcast_sync(progress_data)
 
         try:
             print()
@@ -436,11 +426,10 @@ class MergerHTTPHandler(SimpleHTTPRequestHandler):
             print("  MERGE EXECUTION STARTED")
             print("=" * 60)
 
-            # Send start message
-            loop.run_until_complete(ws_broadcast({
+            ws_broadcast_sync({
                 "type": "execution_start",
                 "message": "Merge execution started",
-            }))
+            })
 
             # Compile graph
             print("  [COMPILE] Compiling graph...")
@@ -466,11 +455,10 @@ class MergerHTTPHandler(SimpleHTTPRequestHandler):
             print("=" * 60)
             print()
 
-            # Send completion
-            loop.run_until_complete(ws_broadcast({
+            ws_broadcast_sync({
                 "type": "execution_complete",
                 "result": result,
-            }))
+            })
 
         except Exception as e:
             print()
@@ -481,16 +469,10 @@ class MergerHTTPHandler(SimpleHTTPRequestHandler):
             print("!" * 60)
             print()
 
-            try:
-                loop.run_until_complete(ws_broadcast({
-                    "type": "execution_error",
-                    "error": str(e),
-                }))
-            except Exception:
-                pass
-
-        finally:
-            loop.close()
+            ws_broadcast_sync({
+                "type": "execution_error",
+                "error": str(e),
+            })
 
     def log_message(self, format, *args):
         """Log all HTTP requests to terminal."""
@@ -570,32 +552,33 @@ def main():
     webbrowser.open(f"http://{host}:{http_port}")
 
     # Start WebSocket server (async)
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    global MAIN_LOOP
+    MAIN_LOOP = asyncio.new_event_loop()
+    asyncio.set_event_loop(MAIN_LOOP)
 
     ws_server = None
     try:
-        ws_server = loop.run_until_complete(start_ws_server(host, ws_port))
-        loop.run_forever()
+        ws_server = MAIN_LOOP.run_until_complete(start_ws_server(host, ws_port))
+        MAIN_LOOP.run_forever()
     except KeyboardInterrupt:
         print("\nShutting down...")
     finally:
         # Stop WebSocket server
         if ws_server:
             ws_server.close()
-            loop.run_until_complete(ws_server.wait_closed())
+            MAIN_LOOP.run_until_complete(ws_server.wait_closed())
         
         # Stop HTTP server
         httpd.shutdown()
         
         # Cancel remaining async tasks
-        pending = asyncio.all_tasks(loop)
+        pending = asyncio.all_tasks(MAIN_LOOP)
         for task in pending:
             task.cancel()
         if pending:
-            loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+            MAIN_LOOP.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
         
-        loop.close()
+        MAIN_LOOP.close()
         print("  Server stopped.")
         
         # Force exit — daemon threads and sockets can linger on Windows

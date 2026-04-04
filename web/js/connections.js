@@ -119,18 +119,17 @@ window.Connections = (() => {
         );
         if (!portEl) return null;
 
-        const nodeX = node.x;
-        const nodeY = node.y;
+        let offsetX = portEl.offsetWidth / 2;
+        let offsetY = portEl.offsetHeight / 2;
+        
+        let current = portEl;
+        while (current && current !== node.element) {
+            offsetX += current.offsetLeft;
+            offsetY += current.offsetTop;
+            current = current.offsetParent;
+        }
 
-        // Port position relative to node
-        const nodeRect = node.element.getBoundingClientRect();
-        const portRect = portEl.getBoundingClientRect();
-        const zoom = Canvas.getViewport().zoom;
-
-        const px = nodeX + (portRect.left + portRect.width / 2 - nodeRect.left) / zoom;
-        const py = nodeY + (portRect.top + portRect.height / 2 - nodeRect.top) / zoom;
-
-        return { x: px, y: py };
+        return { x: node.x + offsetX, y: node.y + offsetY };
     }
 
     // ─── Bezier Path ────────────────────────────────────────────
@@ -352,6 +351,7 @@ window.Connections = (() => {
         getConnectionsForNode,
         updateAll,
         updateConnectionsForNode,
+        updatePortStates,
         startDrag,
         serialize,
         deserialize,

@@ -200,13 +200,8 @@ def save_model_streaming(
     metadata: Optional[dict[str, str]] = None,
 ):
     """
-    Save model by streaming tensors one at a time.
-    Used in low-VRAM mode to avoid holding everything in memory.
-    
-    tensor_generator: callable(key) -> torch.Tensor
+    Deprecated streaming save (accumulates in RAM). Use save_model_lazy_streaming instead.
     """
-    # We need to collect all tensors for safetensors format
-    # But we process and convert them one at a time
     state_dict = {}
     target_dtype = DTYPE_MAP.get(dtype) if dtype else None
 
@@ -217,6 +212,101 @@ def save_model_streaming(
         state_dict[key] = tensor.cpu().contiguous()
 
     save_file(state_dict, filepath, metadata=metadata)
+
+
+def save_model_lazy_streaming(
+    filepath: str,
+    keys: list[str],
+    shape_func,    # callable(key) -> tuple(shape, dtype_str)
+    tensor_generator, # callable(key) -> torch.Tensor
+    dtype: Optional[str] = None,
+    metadata: Optional[dict[str, str]] = None,
+    progress_callback = None
+):
+    """
+    True zero-RAM streaming saver for safetensors.
+    Computes JSON header first, then streams tensors directly to disk.
+    """
+    os.makedirs(os.path.dirname(filepath) if os.path.dirname(filepath) else ".", exist_ok=True)
+    
+    header = {"__metadata__": metadata or {}}
+    target_dtype_str = dtype.upper() if dtype else None
+    if target_dtype_str == "FP16": target_dtype_str = "F16"
+    if target_dtype_str == "FP32": target_dtype_str = "F32"
+    
+    target_dtype = DTYPE_MAP.get(dtype) if dtype else None
+    
+    current_offset = 0
+    tensors_meta = {}
+    
+    # First pass: Get shapes and compute offsets
+    for key in keys:
+        shape, orig_dtype_str = shape_func(key)
+        
+        orig_dtype_upper = orig_dtype_str.upper()
+        is_float = orig_dtype_upper in ["F64", "F32", "F16", "BF16", "FP32", "FP16"]
+        
+        if is_float and target_dtype_str:
+            save_dtype_str = target_dtype_str
+        else:
+            save_dtype_str = orig_dtype_upper
+            
+        if save_dtype_str == "FP16": save_dtype_str = "F16"
+        if save_dtype_str == "FP32": save_dtype_str = "F32"
+        
+        dtype_sizes = {
+            "F64": 8, "F32": 4, "F16": 2, "BF16": 2,
+            "I64": 8, "I32": 4, "I16": 2, "I8": 1,
+            "U8": 1, "BOOL": 1
+        }
+        element_size = dtype_sizes.get(save_dtype_str, 4)
+        numel = 1
+        for s in shape:
+            numel *= s
+        byte_size = numel * element_size
+        
+        tensors_meta[key] = {
+            "dtype": save_dtype_str,
+            "shape": list(shape),
+            "data_offsets": [current_offset, current_offset + byte_size]
+        }
+        current_offset += byte_size
+    
+    header.update(tensors_meta)
+    
+    # Create the JSON string properly padded to 8 bytes length
+    header_json = json.dumps(header, separators=(",", ":"))
+    json_bytes = header_json.encode('utf-8')
+    padding_len = (8 - (len(json_bytes) % 8)) % 8
+    json_bytes += b' ' * padding_len
+    header_size = len(json_bytes)
+    
+    with open(filepath, "wb") as f:
+        # Write 8-byte N header size
+        f.write(struct.pack("<Q", header_size))
+        # Write JSON header
+        f.write(json_bytes)
+        
+        # Write tensors sequentially
+        for ki, key in enumerate(keys):
+            if progress_callback:
+                progress_callback(ki, len(keys), key)
+            
+            tensor = tensor_generator(key)
+            if target_dtype and tensor.is_floating_point():
+                tensor = tensor.to(dtype=target_dtype)
+            
+            tensor = tensor.cpu().contiguous()
+            
+            if tensor.dtype == torch.bfloat16:
+                if tensor.dim() == 0:
+                    raw_bytes = tensor.unsqueeze(0).view(torch.uint8).numpy().tobytes()
+                else:
+                    raw_bytes = tensor.view(torch.uint8).numpy().tobytes()
+            else:
+                raw_bytes = tensor.numpy().tobytes()
+                
+            f.write(raw_bytes)
 
 
 def get_model_type_info(filepath: str) -> dict:

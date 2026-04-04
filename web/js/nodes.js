@@ -178,6 +178,18 @@ window.Nodes = (() => {
         el.className = `node node-type-${node.type} node-category-${def.category}`;
         el.dataset.nodeId = node.id;
 
+        // Auto-update connections if node dimensions change (fixes css/layout shifting)
+        if (window.ResizeObserver) {
+            const ro = new ResizeObserver(() => {
+                if (window.Connections) {
+                    Connections.updateConnectionsForNode(node.id);
+                }
+            });
+            ro.observe(el);
+            // Store reference to disconnect when element is removed
+            el._resizeObserver = ro;
+        }
+
         // Header
         const header = document.createElement('div');
         header.className = 'node-header';
@@ -441,7 +453,10 @@ window.Nodes = (() => {
         if (!node) return;
 
         Connections.removeConnectionsForNode(nodeId);
-        if (node.element) node.element.remove();
+        if (node.element) {
+            if (node.element._resizeObserver) node.element._resizeObserver.disconnect();
+            node.element.remove();
+        }
         delete nodes[nodeId];
         selectedNodes.delete(nodeId);
         updateStatusCounts();
@@ -465,6 +480,7 @@ window.Nodes = (() => {
         // Re-build the element
         const parent = node.element.parentNode;
         const wasSelected = selectedNodes.has(nodeId);
+        if (node.element._resizeObserver) node.element._resizeObserver.disconnect();
         node.element.remove();
 
         // Check if merge algorithm changed and needs MODEL_C
@@ -488,7 +504,15 @@ window.Nodes = (() => {
         if (wasSelected) node.element.classList.add('selected');
         parent.appendChild(node.element);
         updateNodePosition(node);
-        Connections.updateConnectionsForNode(nodeId);
+        
+        requestAnimationFrame(() => {
+            if (window.Connections) {
+                Connections.updateConnectionsForNode(nodeId);
+                if (typeof Connections.updatePortStates === 'function') {
+                    Connections.updatePortStates();
+                }
+            }
+        });
     }
 
     // ─── Context Menu ───────────────────────────────────────────

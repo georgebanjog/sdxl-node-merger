@@ -17,6 +17,150 @@ from . import algorithms
 from . import lora_utils
 from . import vae_utils
 from . import metadata as meta_utils
+import json
+import struct
+
+class FileRegistry:
+    def __init__(self):
+        self._handles = {}
+        self._headers = {}
+        
+    def get_handle(self, filepath, device="cpu"):
+        if filepath not in self._handles:
+            self._handles[filepath] = tensor_io.safe_open(filepath, framework="pt", device=device)
+        return self._handles[filepath]
+        
+    def get_tensor(self, filepath, key, device="cpu"):
+        h = self.get_handle(filepath, device=device)
+        return h.get_tensor(key)
+        
+    def get_shape_and_dtype(self, filepath, key):
+        if filepath not in self._headers:
+            with open(filepath, "rb") as f:
+                header_size = struct.unpack("<Q", f.read(8))[0]
+                header_json = f.read(header_size).decode("utf-8")
+                self._headers[filepath] = json.loads(header_json)
+        info = self._headers[filepath].get(key)
+        if info:
+            return info["shape"], info["dtype"]
+        return None, None
+        
+    def close_all(self):
+        self._handles.clear()
+        self._headers.clear()
+
+def _get_lazy_shape(node_id, key, state, registry):
+    node = state.get(node_id)
+    if not node:
+        return [], "F32"
+    ntype = node["type"]
+    if ntype == "checkpoint_ref":
+        if key in node.get("keys", []):
+            return registry.get_shape_and_dtype(node["path"], key)
+        return None, None
+    elif ntype in ("checkpoint", "merged"):
+        t = node["state_dict"].get(key)
+        if t is not None:
+            dtype_str = "FP32"
+            if t.dtype == torch.float16: dtype_str = "F16"
+            elif t.dtype == torch.bfloat16: dtype_str = "BF16"
+            return list(t.shape), dtype_str
+        return None, None
+    elif ntype == "lazy_merged":
+        for input_name in sorted(node["model_inputs"].keys()):
+            src_id = node["model_inputs"][input_name]
+            shape, dt = _get_lazy_shape(src_id, key, state, registry)
+            if shape is not None: return shape, dt
+    elif ntype == "lazy_apply_lora":
+        return _get_lazy_shape(node["model_source"], key, state, registry)
+    elif ntype == "lazy_replace_vae" or ntype == "vae_ref":
+        if key.startswith("first_stage_model.") and "vae_source" in node:
+            shape, dt = _get_lazy_shape(node["vae_source"], key, state, registry)
+            if shape is not None: return shape, dt
+        elif ntype == "vae_ref":
+            if key in node.get("keys", []):
+                return registry.get_shape_and_dtype(node["path"], key)
+        if "model_source" in node:
+            return _get_lazy_shape(node["model_source"], key, state, registry)
+    return None, None
+
+def _evaluate_lazy_tensor(node_id, key, state, registry, device):
+    node = state.get(node_id)
+    if not node:
+        return None
+        
+    ntype = node["type"]
+    if ntype in ("checkpoint", "merged"):
+        return node["state_dict"].get(key)
+    elif ntype in ("checkpoint_ref", "vae_ref"):
+        if key in node["keys"]:
+            return registry.get_tensor(node["path"], key, device=device)
+        return None
+    elif ntype == "lazy_merged":
+        all_keys = node["keys"]
+        if key not in all_keys:
+            return None
+            
+        tensors = []
+        model_inputs = node["model_inputs"]
+        for input_name in sorted(model_inputs.keys()):
+            src_id = model_inputs[input_name]
+            t = _evaluate_lazy_tensor(src_id, key, state, registry, device)
+            tensors.append(t)
+            
+        real_tensors = [t for t in tensors if t is not None]
+        if not real_tensors:
+            return None
+        ref_tensor = real_tensors[0]
+        tensors = [t.to(device) if t is not None else torch.zeros_like(ref_tensor).to(device) for t in tensors]
+        
+        effective_params = dict(node["params"])
+        if node.get("use_mbw"):
+            block_id = tensor_io.get_block_id_for_key(key)
+            mbw = node.get("mbw_weights", {})
+            if block_id in mbw:
+                effective_params["alpha"] = mbw[block_id]
+                
+        return algorithms.merge_tensors(node["algorithm"], tensors, effective_params)
+        
+    elif ntype == "lazy_apply_lora":
+        t = _evaluate_lazy_tensor(node["model_source"], key, state, registry, device)
+        if t is None:
+            return None
+        lora_data = node["lora_data"]
+        layer_data = lora_data.get(key)
+        if not layer_data and key.endswith(".weight"):
+            layer_data = lora_data.get(key[:-7])
+        if not layer_data:
+            layer_data = lora_data.get(key + ".weight")
+            
+        t = t.to(device)
+        if layer_data:
+            delta = lora_utils.compute_lora_delta(
+                layer_data["up"].to(device),
+                layer_data["down"].to(device),
+                layer_data["alpha"],
+                layer_data["rank"]
+            )
+            target = t.float()
+            if delta.shape == target.shape:
+                t = (target + delta * node["strength"]).to(t.dtype)
+            else:
+                try:
+                    delta = delta.reshape(target.shape)
+                    t = (target + delta * node["strength"]).to(t.dtype)
+                except RuntimeError:
+                    pass
+        return t
+        
+    elif ntype == "lazy_replace_vae":
+        if key.startswith("first_stage_model."):
+            t = _evaluate_lazy_tensor(node["vae_source"], key, state, registry, device)
+            if t is not None:
+                return t
+        return _evaluate_lazy_tensor(node["model_source"], key, state, registry, device)
+    
+    return None
 
 
 class MergeProgress:
@@ -108,10 +252,8 @@ def execute_plan(
     progress.log(f"Low VRAM mode: {low_vram}")
     progress.log(f"Total steps: {len(steps)}")
     
-    # Runtime state: stores intermediate results (node_id -> data)
+    registry = FileRegistry()
     state = {}
-    
-    # Track loaded LoRA data (for reuse)
     lora_cache = {}
     
     dirs = config.get("directories", {})
@@ -162,14 +304,36 @@ def execute_plan(
                     )
             
             elif step_type == "apply_lora":
-                _execute_apply_lora(
-                    state, lora_cache, node_id, params, device, low_vram, progress
-                )
+                if low_vram:
+                    src_state = state.get(params["model_source"], {})
+                    state[node_id] = {
+                        "type": "lazy_apply_lora",
+                        "model_source": params["model_source"],
+                        "lora_data": lora_cache.get(params["lora_source"], {}),
+                        "strength": params.get("strength", 1.0),
+                        "keys": list(src_state.get("keys", src_state.get("state_dict", {}).keys())),
+                        "metadata": src_state.get("metadata", {})
+                    }
+                    progress.log("  Prepared lazy LoRA apply")
+                else:
+                    _execute_apply_lora(state, lora_cache, node_id, params, device, low_vram, progress)
             
             elif step_type == "replace_vae":
-                _execute_replace_vae(
-                    state, node_id, params, device, progress
-                )
+                if low_vram:
+                    m_state = state.get(params["model_source"], {})
+                    v_state = state.get(params["vae_source"], {})
+                    m_keys = set(m_state.get("keys", m_state.get("state_dict", {}).keys()))
+                    v_keys = set(v_state.get("keys", v_state.get("state_dict", {}).keys()))
+                    m_keys = {k for k in m_keys if not k.startswith("first_stage_model.")}
+                    all_keys = m_keys | v_keys
+                    state[node_id] = {
+                        "type": "lazy_replace_vae", "model_source": params["model_source"],
+                        "vae_source": params["vae_source"], "keys": sorted(all_keys),
+                        "metadata": m_state.get("metadata", {})
+                    }
+                    progress.log("  Prepared lazy VAE replace")
+                else:
+                    _execute_replace_vae(state, node_id, params, device, progress)
             
             elif step_type == "edit_metadata":
                 _execute_edit_metadata(
@@ -178,7 +342,7 @@ def execute_plan(
             
             elif step_type == "save":
                 output_path = _execute_save(
-                    state, node_id, params, output_dir, progress
+                    state, node_id, params, output_dir, progress, registry, device, low_vram
                 )
                 results["output_files"].append(output_path)
             
@@ -187,31 +351,29 @@ def execute_plan(
             
             # ── Intelligent memory cleanup ──────────────────────────────
             # Free state entries that are no longer needed by remaining steps.
-            # This is critical for VRAM: without it, two SDXL models (~13GB)
-            # stay in memory even after the merge consumes them.
-            remaining_steps = steps[i + 1:]
-            referenced_ids = set()
-            for future_step in remaining_steps:
-                fs = future_step.to_dict() if hasattr(future_step, 'to_dict') else future_step
-                fp = fs.get("params", {})
-                # Collect all node IDs referenced by future steps
-                referenced_ids.add(fs.get("node_id", ""))
-                referenced_ids.add(fp.get("model_source", ""))
-                referenced_ids.add(fp.get("lora_source", ""))
-                referenced_ids.add(fp.get("vae_source", ""))
-                for v in fp.get("model_inputs", {}).values():
-                    referenced_ids.add(v)
-            referenced_ids.discard("")
-            
-            # Free unreferenced state entries
-            stale_ids = [sid for sid in state if sid not in referenced_ids]
-            for sid in stale_ids:
-                entry = state.pop(sid)
-                # Explicitly delete large data reference (do not use .clear() to preserve aliased dictionaries)
-                if "state_dict" in entry:
-                    del entry["state_dict"]
-                entry.clear()
-                progress.log(f"  🗑 Freed memory: node {sid}")
+            # In low_vram mode, we skip this since state entries are just tiny graph node recipes
+            # and lazy evaluation at the end needs the whole graph to be present.
+            if not low_vram:
+                remaining_steps = steps[i + 1:]
+                referenced_ids = set()
+                for future_step in remaining_steps:
+                    fs = future_step.to_dict() if hasattr(future_step, 'to_dict') else future_step
+                    fp = fs.get("params", {})
+                    referenced_ids.add(fs.get("node_id", ""))
+                    referenced_ids.add(fp.get("model_source", ""))
+                    referenced_ids.add(fp.get("lora_source", ""))
+                    referenced_ids.add(fp.get("vae_source", ""))
+                    for v in fp.get("model_inputs", {}).values():
+                        referenced_ids.add(v)
+                referenced_ids.discard("")
+                
+                stale_ids = [sid for sid in state if sid not in referenced_ids]
+                for sid in stale_ids:
+                    entry = state.pop(sid)
+                    if "state_dict" in entry:
+                        del entry["state_dict"]
+                    entry.clear()
+                    progress.log(f"  🗑 Freed memory: node {sid}")
             
             if device == "cuda":
                 torch.cuda.empty_cache()
@@ -227,6 +389,7 @@ def execute_plan(
         # Clean up all state
         state.clear()
         lora_cache.clear()
+        registry.close_all()
         gc.collect()
         if device == "cuda":
             torch.cuda.empty_cache()
@@ -265,14 +428,15 @@ def _execute_load_checkpoint(state, node_id, params, checkpoint_dir, device, low
         }
         progress.log(f"  Loaded reference ({len(keys)} tensors)")
     else:
-        state_dict = tensor_io.load_model_full(filepath, device=device)
+        # Normal Mode: Load entirely into CPU RAM (not VRAM) to prevent OOM
+        state_dict = tensor_io.load_model_full(filepath, device="cpu")
         md = meta_utils.read_safetensors_metadata(filepath)
         state[node_id] = {
             "type": "checkpoint",
             "state_dict": state_dict,
             "metadata": md,
         }
-        progress.log(f"  Loaded {len(state_dict)} tensors to {device}")
+        progress.log(f"  Loaded {len(state_dict)} tensors to RAM (cpu)")
 
 
 def _execute_load_lora(state, lora_cache, node_id, params, lora_dir, progress):
@@ -305,12 +469,13 @@ def _execute_load_vae(state, node_id, params, vae_dir, device, low_vram, progres
             "keys": keys,
         }
     else:
-        state_dict = tensor_io.load_model_full(filepath, device=device)
+        # Normal Mode: Load VAE into CPU RAM (not VRAM)
+        state_dict = tensor_io.load_model_full(filepath, device="cpu")
         state[node_id] = {
             "type": "vae",
             "state_dict": state_dict,
         }
-    progress.log(f"  VAE loaded")
+    progress.log(f"  VAE loaded into RAM")
 
 
 def _execute_merge_full(state, node_id, params, device, progress):
@@ -375,12 +540,14 @@ def _execute_merge_full(state, node_id, params, device, progress):
         
         # Apply merge algorithm
         try:
-            result[key] = algorithms.merge_tensors(algorithm_name, tensors, effective_params)
+            merged_tensor = algorithms.merge_tensors(algorithm_name, tensors, effective_params)
+            result[key] = merged_tensor.cpu()
         except Exception as e:
             # Fallback to simple interpolation on error
             progress.log(f"  ⚠ Algorithm error on {key}: {e}, using weighted_sum fallback")
             alpha = effective_params.get("alpha", 0.5)
-            result[key] = torch.lerp(tensors[0].float(), tensors[1].float(), alpha).to(tensors[0].dtype)
+            merged_tensor = torch.lerp(tensors[0].float(), tensors[1].float(), alpha).to(tensors[0].dtype)
+            result[key] = merged_tensor.cpu()
     
     # Merge metadata from sources
     source_names = []
@@ -406,88 +573,33 @@ def _execute_merge_full(state, node_id, params, device, progress):
 
 
 def _execute_merge_streaming(state, node_id, params, device, progress):
-    """Execute merge in streaming (low-VRAM) mode."""
+    """Setup a lazy merge recipe instead of executing immediately."""
     algorithm_name = params["algorithm"]
     algo_params = params["params"]
     model_inputs = params["model_inputs"]
-    use_mbw = params.get("use_mbw", False)
-    mbw_weights = params.get("mbw_weights", {})
     
-    progress.log(f"Streaming merge with algorithm: {algorithm_name}")
+    progress.log(f"Preparing lazy merge with algorithm: {algorithm_name}")
     
-    # Gather input paths/refs
-    input_refs = []
-    input_names = sorted(model_inputs.keys())
-    
-    for input_name in input_names:
-        src_id = model_inputs[input_name]
-        src_state = state.get(src_id)
-        if not src_state:
-            raise ValueError(f"Source node {src_id} not found in state")
-        input_refs.append(src_state)
-    
-    # Determine all keys
     all_keys = set()
-    for ref in input_refs:
+    for input_name in sorted(model_inputs.keys()):
+        src_id = model_inputs[input_name]
+        ref = state.get(src_id, {})
         if "keys" in ref:
             all_keys.update(ref["keys"])
         elif "state_dict" in ref:
             all_keys.update(ref["state_dict"].keys())
-    all_keys = sorted(all_keys)
-    
-    progress.log(f"  Streaming merge of {len(all_keys)} tensors...")
-    
-    result = {}
-    for ki, key in enumerate(all_keys):
-        if ki % 50 == 0:
-            progress.update_sub(ki / len(all_keys), f"Streaming tensor {ki}/{len(all_keys)}")
-        
-        tensors = []
-        skip_key = False
-        for ref in input_refs:
-            if ref["type"] == "checkpoint_ref":
-                if key in ref.get("keys", []):
-                    t = tensor_io.load_tensor(ref["path"], key, device="cpu")
-                    tensors.append(t.to(device))
-                else:
-                    # Key missing in this model — will fill with zeros below
-                    tensors.append(None)
-            elif ref["type"] in ("checkpoint", "merged"):
-                if key in ref["state_dict"]:
-                    tensors.append(ref["state_dict"][key].to(device))
-                else:
-                    tensors.append(None)
-            else:
-                raise ValueError(f"Cannot stream from type: {ref['type']}")
-        
-        # Fill None entries with zeros matching the first real tensor
-        real_tensors = [t for t in tensors if t is not None]
-        if not real_tensors:
-            continue  # No model has this key at all, skip
-        
-        ref_tensor = real_tensors[0]
-        tensors = [t if t is not None else torch.zeros_like(ref_tensor) for t in tensors]
-        
-        effective_params = dict(algo_params)
-        if use_mbw:
-            block_id = tensor_io.get_block_id_for_key(key)
-            if block_id in mbw_weights:
-                effective_params["alpha"] = mbw_weights[block_id]
-        
-        merged_tensor = algorithms.merge_tensors(algorithm_name, tensors, effective_params)
-        result[key] = merged_tensor.cpu()
-        
-        # Free GPU memory immediately
-        del tensors, merged_tensor
-        if device == "cuda" and ki % 100 == 0:
-            torch.cuda.empty_cache()
-    
+            
     state[node_id] = {
-        "type": "merged",
-        "state_dict": result,
+        "type": "lazy_merged",
+        "algorithm": algorithm_name,
+        "params": algo_params,
+        "model_inputs": model_inputs,
+        "use_mbw": params.get("use_mbw", False),
+        "mbw_weights": params.get("mbw_weights", {}),
+        "keys": sorted(all_keys),
         "metadata": {},
     }
-    progress.log(f"  Streaming merge complete")
+    progress.log(f"  Lazy merge prepared ({len(all_keys)} keys registered)")
 
 
 def _execute_apply_lora(state, lora_cache, node_id, params, device, low_vram, progress):
@@ -530,12 +642,12 @@ def _execute_apply_lora(state, lora_cache, node_id, params, device, low_vram, pr
             
             target = model_dict[target_key].to(device).float()
             if delta.shape == target.shape:
-                model_dict[target_key] = (target + delta * strength).to(model_dict[target_key].dtype)
+                model_dict[target_key] = (target + delta * strength).to(model_dict[target_key].dtype).cpu()
                 applied += 1
             else:
                 try:
                     delta = delta.reshape(target.shape)
-                    model_dict[target_key] = (target + delta * strength).to(model_dict[target_key].dtype)
+                    model_dict[target_key] = (target + delta * strength).to(model_dict[target_key].dtype).cpu()
                     applied += 1
                 except RuntimeError:
                     pass
@@ -600,7 +712,7 @@ def _execute_replace_vae(state, node_id, params, device, progress):
         if vae_state["type"] in ("vae", "checkpoint", "merged"):
             vae_dict = vae_state["state_dict"]
         elif vae_state["type"] == "vae_ref":
-            vae_dict = tensor_io.load_model_full(vae_state["path"], device=device)
+            vae_dict = tensor_io.load_model_full(vae_state["path"], device="cpu")
         else:
             raise ValueError(f"Invalid VAE source type: {vae_state['type']}")
         
@@ -636,7 +748,7 @@ def _execute_edit_metadata(state, node_id, params, progress):
     progress.log(f"  Metadata updated ({len(new_metadata)} fields)")
 
 
-def _execute_save(state, node_id, params, output_dir, progress):
+def _execute_save(state, node_id, params, output_dir, progress, registry, device, low_vram):
     """Save the final model to disk."""
     model_src = params["model_source"]
     filename = params.get("filename", "merged_model.safetensors")
@@ -655,23 +767,37 @@ def _execute_save(state, node_id, params, output_dir, progress):
     
     progress.log(f"Saving to: {output_path} (dtype={dtype})")
     
-    # Prepare metadata
     model_metadata = dict(src_state.get("metadata", {}))
     model_metadata.update(custom_metadata)
     model_metadata["output_dtype"] = dtype
-    # Ensure all values are strings
     model_metadata = {k: str(v) for k, v in model_metadata.items()}
     
-    if src_state["type"] in ("checkpoint", "merged"):
+    if low_vram and src_state["type"] in ("lazy_merged", "lazy_apply_lora", "lazy_replace_vae", "checkpoint_ref"):
+        progress.log(f"  Streaming save initialized...")
+        all_keys = src_state.get("keys", [])
+        
+        def shape_func(key):
+            return _get_lazy_shape(model_src, key, state, registry)
+            
+        def tensor_generator(key):
+            t = _evaluate_lazy_tensor(model_src, key, state, registry, device)
+            if t is None:
+                raise RuntimeError(f"Missing tensor evaluated logic error: {key}")
+            return t
+            
+        tensor_io.save_model_lazy_streaming(
+            filepath=output_path,
+            keys=all_keys,
+            shape_func=shape_func,
+            tensor_generator=tensor_generator,
+            dtype=dtype,
+            metadata=model_metadata,
+            progress_callback=lambda ki, tot, key: progress.update_sub(ki / tot, f"Streaming {ki}/{tot}") if ki % 50 == 0 else None
+        )
+    elif src_state["type"] in ("checkpoint", "merged"):
         state_dict = src_state["state_dict"]
-        progress.log(f"  Saving {len(state_dict)} tensors...")
+        progress.log(f"  Saving {len(state_dict)} tensors from RAM...")
         tensor_io.save_model(state_dict, output_path, dtype=dtype, metadata=model_metadata)
-    elif src_state["type"] == "checkpoint_ref":
-        # Need to load and save
-        progress.log("  Loading model for save...")
-        state_dict = tensor_io.load_model_full(src_state["path"])
-        tensor_io.save_model(state_dict, output_path, dtype=dtype, metadata=model_metadata)
-        del state_dict
     
     file_size = os.path.getsize(output_path)
     size_gb = file_size / (1024**3)

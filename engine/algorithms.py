@@ -46,6 +46,19 @@ def merge_tensors(algorithm: str, tensors: list[torch.Tensor], params: dict) -> 
     """Apply a merge algorithm to a list of tensors."""
     if algorithm not in ALGORITHMS:
         raise ValueError(f"Unknown algorithm: {algorithm}")
+        
+    req_models = ALGORITHMS[algorithm].get("num_models", 2)
+    
+    # Gracefully handle missing model connections by padding with the base model.
+    # Mathematically, this nullifies algorithms like Base + (A-Base) + (B-Base) if B is missing.
+    if tensors and len(tensors) < req_models:
+        base_tensor = tensors[0]
+        while len(tensors) < req_models:
+            tensors.append(base_tensor)
+            
+    if not tensors:
+        raise ValueError(f"Cannot merge with 0 tensors")
+        
     return ALGORITHMS[algorithm]["func"](tensors, params)
 
 
@@ -64,6 +77,8 @@ PARAM_NORM_MEAN = {"name": "normalize_mean", "type": "bool", "default": True, "l
 PARAM_NORM_STD = {"name": "normalize_std", "type": "bool", "default": True, "label": "Normalize Std"}
 PARAM_MAJORITY_METHOD = {"name": "majority_sign", "type": "select", "options": ["total", "frequency"], "default": "total", "label": "Majority Sign Method"}
 PARAM_NORMALIZE = {"name": "normalize", "type": "bool", "default": False, "label": "Normalize"}
+PARAM_CUTOFF_FREQ = {"name": "cutoff_freq", "type": "float", "min": 0.01, "max": 0.99, "default": 0.5, "step": 0.01, "label": "Cutoff Freq"}
+
 
 
 # ─── Algorithms ──────────────────────────────────────────────────────────────────
@@ -153,8 +168,16 @@ def ties_merge(tensors: list[torch.Tensor], params: dict) -> torch.Tensor:
         if flat.numel() == 0:
             trimmed.append(delta)
             continue
+        if density >= 0.999:
+            trimmed.append(delta)
+            continue
+        if density <= 0.001:
+            trimmed.append(torch.zeros_like(delta))
+            continue
+            
         k = max(1, int(flat.numel() * density))
-        threshold = torch.topk(flat, k).values[-1]
+        sorted_flat = torch.sort(flat)[0]
+        threshold = sorted_flat[-k]
         mask = delta.abs() >= threshold
         trimmed.append(delta * mask.float())
     
@@ -372,5 +395,209 @@ def multiply_difference(tensors: list[torch.Tensor], params: dict) -> torch.Tens
     return result.to(tensors[0].dtype)
 
 
+@register_algorithm(
+    name="slerp",
+    display_name="SLERP",
+    description="Spherical Linear Interpolation — better preserves variance than linear merge",
+    params=[PARAM_ALPHA],
+    num_models=2,
+)
+def slerp(tensors: list[torch.Tensor], params: dict) -> torch.Tensor:
+    alpha = params.get("alpha", 0.5)
+    a, b = tensors[0].float(), tensors[1].float()
+    
+    a_flat, b_flat = a.flatten(), b.flatten()
+    norm_a, norm_b = torch.norm(a_flat), torch.norm(b_flat)
+    
+    if norm_a < 1e-8 or norm_b < 1e-8:
+        return torch.lerp(a, b, alpha).to(tensors[0].dtype)
+        
+    a_norm = a_flat / norm_a
+    b_norm = b_flat / norm_b
+    
+    dot = torch.sum(a_norm * b_norm).clamp(-0.9995, 0.9995)
+    omega = torch.acos(dot)
+    so = torch.sin(omega)
+    
+    if so < 1e-8:
+        return torch.lerp(a, b, alpha).to(tensors[0].dtype)
+        
+    sin_1_t = torch.sin((1.0 - alpha) * omega) / so
+    sin_t = torch.sin(alpha * omega) / so
+    
+    result = (sin_1_t * a_flat + sin_t * b_flat).reshape_as(a)
+    return result.to(tensors[0].dtype)
 
 
+@register_algorithm(
+    name="task_arithmetic",
+    display_name="Task Arithmetic",
+    description="Model arithmetic adding independent task vectors: Base + (A-Base) + (B-Base)",
+    params=[PARAM_ALPHA],
+    num_models=3,
+)
+def task_arithmetic(tensors: list[torch.Tensor], params: dict) -> torch.Tensor:
+    alpha = params.get("alpha", 1.0)
+    base = tensors[0].float()
+    task_a = tensors[1].float() - base
+    task_b = tensors[2].float() - base
+    
+    merged_task = (task_a + task_b) * alpha
+    return (base + merged_task).to(tensors[0].dtype)
+
+
+@register_algorithm(
+    name="geometric_median",
+    display_name="Geometric Median",
+    description="Calculates exact median element-wise between 3 source models",
+    params=[PARAM_ALPHA],
+    num_models=3,
+)
+def geometric_median(tensors: list[torch.Tensor], params: dict) -> torch.Tensor:
+    alpha = params.get("alpha", 1.0)
+    base = tensors[0].float()
+    
+    stacked = torch.stack([t.float() for t in tensors], dim=0)
+    median_tensor = torch.median(stacked, dim=0).values
+    
+    return torch.lerp(base, median_tensor, alpha).to(tensors[0].dtype)
+
+
+@register_algorithm(
+    name="ties_dare",
+    display_name="TIES-DARE Hybrid",
+    description="Synergizes DARE (drop/rescale) and TIES (trim/elect/merge)",
+    params=[PARAM_ALPHA, PARAM_DENSITY, PARAM_DROP_RATE, PARAM_MAJORITY_METHOD, PARAM_SEED],
+    num_models=3,
+)
+def ties_dare(tensors: list[torch.Tensor], params: dict) -> torch.Tensor:
+    alpha = params.get("alpha", 0.5)
+    density = params.get("density", 0.5)
+    drop_rate = params.get("drop_rate", 0.5)
+    majority_sign = params.get("majority_sign", "total")
+    seed = params.get("seed", 42)
+    
+    base, model_a, model_b = tensors[0].float(), tensors[1].float(), tensors[2].float()
+    
+    delta_a = model_a - base
+    delta_b = model_b - base
+    deltas = [delta_a, delta_b]
+    
+    # Step 1: DARE
+    generator = torch.Generator(device=base.device)
+    dare_deltas = []
+    for i, delta in enumerate(deltas):
+        generator.manual_seed(seed + i)
+        mask = torch.bernoulli(torch.ones_like(delta) * (1.0 - drop_rate), generator=generator)
+        rescale = 1.0 / (1.0 - drop_rate) if drop_rate < 1.0 else 0.0
+        dare_deltas.append(delta * mask * rescale)
+        
+    # Step 2: TIES Trim
+    trimmed = []
+    for delta in dare_deltas:
+        flat = delta.flatten().abs()
+        if flat.numel() == 0:
+            trimmed.append(delta)
+            continue
+        if density >= 0.999:
+            trimmed.append(delta)
+            continue
+        if density <= 0.001:
+            trimmed.append(torch.zeros_like(delta))
+            continue
+            
+        k = max(1, int(flat.numel() * density))
+        sorted_flat = torch.sort(flat)[0]
+        threshold = sorted_flat[-k]
+        mask = delta.abs() >= threshold
+        trimmed.append(delta * mask.float())
+        
+    # Step 3: TIES Elect Sign
+    stacked = torch.stack(trimmed, dim=0)
+    if majority_sign == "total":
+        sign_sum = stacked.sum(dim=0)
+    else:
+        sign_sum = stacked.sign().sum(dim=0)
+        
+    elected_sign = sign_sum.sign()
+    
+    # Step 4: TIES Disjoint Merge
+    merged_delta = torch.zeros_like(base)
+    count = torch.zeros_like(base)
+    for t in trimmed:
+        mask = (t.sign() == elected_sign).float()
+        merged_delta += t * mask
+        count += mask
+        
+    count = count.clamp(min=1)
+    merged_delta /= count
+    
+    return (base + merged_delta * alpha).to(tensors[0].dtype)
+
+
+@register_algorithm(
+    name="orthogonal_projection",
+    display_name="Orthogonal Projection",
+    description="Vector orthogonal projection of flattened deltas (eliminates conflicts)",
+    params=[PARAM_ALPHA],
+    num_models=3,
+)
+def orthogonal_projection(tensors: list[torch.Tensor], params: dict) -> torch.Tensor:
+    alpha = params.get("alpha", 0.5)
+    base = tensors[0].float()
+    delta_a = tensors[1].float() - base
+    delta_b = tensors[2].float() - base
+    
+    flat_a = delta_a.flatten()
+    flat_b = delta_b.flatten()
+    
+    norm_a_sq = torch.sum(flat_a * flat_a)
+    if norm_a_sq > 1e-8:
+        proj_scalar = torch.sum(flat_b * flat_a) / norm_a_sq
+        delta_b_ortho = flat_b - proj_scalar * flat_a
+        delta_b_ortho = delta_b_ortho.reshape_as(delta_b)
+    else:
+        delta_b_ortho = delta_b
+        
+    merged_delta = delta_a * (1.0 - alpha) + delta_b_ortho * alpha
+    return (base + merged_delta).to(tensors[0].dtype)
+
+
+@register_algorithm(
+    name="spectral_merge",
+    display_name="Spectral Merge",
+    description="Applies flattened 1D FFT to separate high/low frequencies",
+    params=[PARAM_ALPHA, PARAM_CUTOFF_FREQ],
+    num_models=2,
+)
+def spectral_merge(tensors: list[torch.Tensor], params: dict) -> torch.Tensor:
+    alpha = params.get("alpha", 0.5)
+    cutoff = params.get("cutoff_freq", 0.5)
+    
+    a, b = tensors[0].float(), tensors[1].float()
+    
+    if a.numel() <= 2:
+        return torch.lerp(a, b, alpha).to(tensors[0].dtype)
+        
+    a_flat, b_flat = a.flatten(), b.flatten()
+    
+    try:
+        fft_a = torch.fft.fft(a_flat)
+        fft_b = torch.fft.fft(b_flat)
+        
+        n = a_flat.numel()
+        frequencies = torch.fft.fftfreq(n, d=1.0, device=a.device).abs()
+        max_freq = frequencies.max()
+        
+        threshold = cutoff * max_freq
+        low_mask = (frequencies <= threshold).float()
+        
+        fft_low = fft_a * (1.0 - alpha) + fft_b * alpha
+        fft_high = fft_b * (1.0 - alpha) + fft_a * alpha
+        
+        fft_merged = low_mask * fft_low + (1.0 - low_mask) * fft_high
+        
+        result = torch.fft.ifft(fft_merged).real
+        return result.reshape_as(a).to(tensors[0].dtype)
+    except Exception:
+        return torch.lerp(a, b, alpha).to(tensors[0].dtype)

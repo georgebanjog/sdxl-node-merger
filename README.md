@@ -54,12 +54,10 @@ Instead of writing scripts or using CLI tools, you simply **drag, drop, and conn
 - **Undo/Redo** support with full state history
 - **Project save/load** — pick up right where you left off
 
-### 🧠 11 Merge Algorithms
-- Weighted Sum, Add Difference, Tensor Sum
-- **TIES** (Trim, Elect Sign & Merge)
-- **DARE** (Drop And REscale)
-- Similarity-based merging
-- SLERP (Spherical Linear Interpolation)
+### 🧠 17 Merge Algorithms
+- Weighted Sum, Add Difference, Tensor Sum, SLERP
+- **TIES**, **DARE**, and **TIES-DARE Hybrid**
+- Spectral Merge, Orthogonal Projection, Geometric Median 
 - And more — see [full list](#algorithms)
 
 ### 🎛️ Merge Block Weighted (MBW)
@@ -213,6 +211,12 @@ python server.py
 | **Distribution Merge** | 2 | Align statistical distributions (mean and variance) between models |
 | **Smoothed Add Difference** | 3 | Add Difference with Gaussian smoothing on deltas |
 | **Multiply Difference** | 2 | Scale model weights multiplicatively: `A × (1 + (B/A - 1) * α)` |
+| **SLERP** | 2 | Spherical Linear Interpolation — better preserves variance than linear merge |
+| **Task Arithmetic** | 3 | Model arithmetic adding independent task vectors: Base + (A-Base) + (B-Base) |
+| **Geometric Median** | 3 | Calculates exact median element-wise between 3 source models |
+| **TIES-DARE Hybrid** | 3 | Synergizes DARE (drop/rescale) and TIES (trim/elect/merge) |
+| **Orthogonal Projection** | 3 | Vector orthogonal projection of flattened deltas (eliminates conflicts) |
+| **Spectral Merge** | 2 | Applies flattened 1D FFT to separate high/low frequencies |
 
 > [!NOTE]
 > All algorithms support **Merge Block Weighted (MBW)** mode, allowing per-block α values for fine-grained control over the SDXL U-Net architecture.
