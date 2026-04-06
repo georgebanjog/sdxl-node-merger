@@ -310,7 +310,7 @@ graph LR
 
 ## 🎨 Themes
 
-SDXL Node Merger comes with 4 built-in themes. You can switch themes from the dropdown in the toolbar.
+SDXL Node Merger comes with 14 built-in themes. You can switch themes from the dropdown in the toolbar.
 
 | Theme | Description |
 |-------|-------------|
@@ -318,6 +318,16 @@ SDXL Node Merger comes with 4 built-in themes. You can switch themes from the dr
 | 🌌 **Aurora** | Purple and teal gradients |
 | 🔥 **Ember** | Warm orange and amber tones |
 | ❄️ **Frost** | Cool ice blue and silver |
+| 👾 **Cyberpunk** | Neon pink and cyan on dark purple |
+| 🌲 **Forest** | Deep rich greens and earthy tones |
+| 🌊 **Ocean** | Deep blue and vibrant cyan |
+| 🌇 **Sunset** | Warm orange, violet, and magenta |
+| 🎱 **Monochromia** | Sleek minimalist grayscale |
+| 🍷 **Velvet** | Deep reds, burgundy, and gold |
+| 💧 **Aqua** | Clean mint and teal over dark blue |
+| ☀️ **Solar** | Dark backgrounds with intense sun yellow |
+| 💻 **Matrix** | Dark terminal with glowing neon green |
+| 🚀 **Cosmic** | Deep space indigo and nebula pink |
 
 Custom themes can be added by creating a new `.json` file in `web/themes/`.
 
@@ -329,6 +339,9 @@ The interface supports multiple languages. Currently available:
 
 - 🇬🇧 English
 - 🇷🇺 Russian (Русский)
+- 🇪🇸 Spanish (Español)
+- 🇨🇳 Chinese (中文)
+- 🇫🇷 French (Français)
 
 ### Adding a New Language
 

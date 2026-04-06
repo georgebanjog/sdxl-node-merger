@@ -1,0 +1,93 @@
+{
+    "_name": "Chinese (中文)",
+    "_code": "zh",
+    "toolbar": {
+        "new_project": "新建项目",
+        "open_project": "打开项目",
+        "save_project": "保存项目",
+        "save": "保存",
+        "undo": "撤销",
+        "redo": "重做",
+        "execute": "执行融合",
+        "settings": "设置",
+        "language": "语言",
+        "theme": "主题",
+        "confirm_new": "确定创建新项目吗？未保存的更改将会丢失。",
+        "new_created": "新项目已创建",
+        "no_projects": "没有已保存的项目",
+        "project_name": "项目名称",
+        "saved": "项目已保存！",
+        "validation_failed": "验证失败",
+        "execution_started": "融合已开始！",
+        "merge_complete": "融合完成！",
+        "merge_failed": "融合失败"
+    },
+    "canvas": {
+        "search_nodes": "搜索节点..."
+    },
+    "nodes": {
+        "checkpoint_loader": "模型加载器 (Checkpoint)",
+        "lora_loader": "LoRA 加载器",
+        "vae_loader": "VAE 加载器",
+        "merge_models": "融合模型",
+        "apply_lora": "应用 LoRA",
+        "replace_vae": "替换 VAE",
+        "save_checkpoint": "保存模型",
+        "metadata_editor": "元数据编辑器",
+        "note": "笔记",
+        "select_file": "点击选择文件...",
+        "note_placeholder": "写下笔记..."
+    },
+    "categories": {
+        "source": "输入源",
+        "processing": "处理",
+        "output": "输出",
+        "utility": "工具"
+    },
+    "sidebar": {
+        "properties": "属性",
+        "select_node": "选择一个节点以查看其属性",
+        "node_info": "节点信息",
+        "type": "类型",
+        "file": "文件",
+        "select_file": "— 选择文件 —",
+        "no_files_found": "未找到文件 (请检查设置)",
+        "strength": "强度",
+        "algorithm": "算法",
+        "parameters": "参数",
+        "mbw": "分层权重 (MBW)",
+        "enable_mbw": "启用分层权重调节",
+        "set_all": "设置全部",
+        "output": "输出文件",
+        "precision": "精度",
+        "metadata": "自定义元数据",
+        "add_field": "添加字段"
+    },
+    "settings": {
+        "directories": "目录设置",
+        "checkpoints": "模型 (Checkpoints)",
+        "lora": "LoRA",
+        "vae": "VAE",
+        "output": "输出",
+        "select_directory": "选择目录...",
+        "browse": "浏览",
+        "use_this": "使用此目录",
+        "merge": "融合设置",
+        "device": "设备",
+        "default_dtype": "默认精度",
+        "low_vram": "低显存模式 (速度较慢，节省显存)",
+        "save": "保存设置",
+        "saved": "设置已保存！"
+    },
+    "status": {
+        "connected": "已连接",
+        "disconnected": "已断开",
+        "nodes": "个节点",
+        "connections": "条连接"
+    },
+    "context": {
+        "duplicate": "复制",
+        "select_connected": "选择相关连项",
+        "delete": "删除"
+    }
+}

@@ -1,0 +1,93 @@
+{
+    "_name": "French (Français)",
+    "_code": "fr",
+    "toolbar": {
+        "new_project": "Nouveau Projet",
+        "open_project": "Ouvrir Projet",
+        "save_project": "Enregistrer Projet",
+        "save": "Enregistrer",
+        "undo": "Annuler",
+        "redo": "Refaire",
+        "execute": "Exécuter la Fusion",
+        "settings": "Paramètres",
+        "language": "Langue",
+        "theme": "Thème",
+        "confirm_new": "Créer un nouveau projet ? Les modifications non enregistrées seront perdues.",
+        "new_created": "Nouveau projet créé",
+        "no_projects": "Aucun projet enregistré",
+        "project_name": "Nom du Projet",
+        "saved": "Projet enregistré !",
+        "validation_failed": "Échec de la validation",
+        "execution_started": "Fusion démarrée !",
+        "merge_complete": "Fusion terminée !",
+        "merge_failed": "Échec de la fusion"
+    },
+    "canvas": {
+        "search_nodes": "Rechercher des nœuds..."
+    },
+    "nodes": {
+        "checkpoint_loader": "Charger Checkpoint",
+        "lora_loader": "Charger LoRA",
+        "vae_loader": "Charger VAE",
+        "merge_models": "Fusionner Modèles",
+        "apply_lora": "Appliquer LoRA",
+        "replace_vae": "Remplacer VAE",
+        "save_checkpoint": "Enregistrer Checkpoint",
+        "metadata_editor": "Éditeur de Métadonnées",
+        "note": "Note",
+        "select_file": "Cliquez pour sélectionner un fichier...",
+        "note_placeholder": "Rédiger une note..."
+    },
+    "categories": {
+        "source": "Sources",
+        "processing": "Traitement",
+        "output": "Sortie",
+        "utility": "Utilitaire"
+    },
+    "sidebar": {
+        "properties": "Propriétés",
+        "select_node": "Sélectionnez un nœud pour voir ses propriétés",
+        "node_info": "Info du Nœud",
+        "type": "Type",
+        "file": "Fichier",
+        "select_file": "— Sélectionner un fichier —",
+        "no_files_found": "Aucun fichier trouvé",
+        "strength": "Force",
+        "algorithm": "Algorithme",
+        "parameters": "Paramètres",
+        "mbw": "Poids par Bloc (MBW)",
+        "enable_mbw": "Activer les poids par bloc",
+        "set_all": "Définir Tout",
+        "output": "Fichier de Sortie",
+        "precision": "Précision",
+        "metadata": "Métadonnées Personnalisées",
+        "add_field": "Ajouter Champ"
+    },
+    "settings": {
+        "directories": "Répertoires",
+        "checkpoints": "Checkpoints",
+        "lora": "LoRA",
+        "vae": "VAE",
+        "output": "Sortie",
+        "select_directory": "Sélectionner le répertoire...",
+        "browse": "Parcourir",
+        "use_this": "Utiliser ce répertoire",
+        "merge": "Paramètres de Fusion",
+        "device": "Appareil",
+        "default_dtype": "Précision par Défaut",
+        "low_vram": "Mode Basse VRAM (plus lent, moins de mémoire)",
+        "save": "Enregistrer Paramètres",
+        "saved": "Paramètres enregistrés !"
+    },
+    "status": {
+        "connected": "Connecté",
+        "disconnected": "Déconnecté",
+        "nodes": "nœuds",
+        "connections": "connexions"
+    },
+    "context": {
+        "duplicate": "Dupliquer",
+        "select_connected": "Sélectionner Connectés",
+        "delete": "Supprimer"
+    }
+}

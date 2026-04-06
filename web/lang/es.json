@@ -1,0 +1,93 @@
+{
+    "_name": "Spanish (Español)",
+    "_code": "es",
+    "toolbar": {
+        "new_project": "Nuevo Proyecto",
+        "open_project": "Abrir Proyecto",
+        "save_project": "Guardar Proyecto",
+        "save": "Guardar",
+        "undo": "Deshacer",
+        "redo": "Rehacer",
+        "execute": "Ejecutar",
+        "settings": "Ajustes",
+        "language": "Idioma",
+        "theme": "Tema",
+        "confirm_new": "¿Crear un nuevo proyecto? Los cambios no guardados se perderán.",
+        "new_created": "Nuevo proyecto creado",
+        "no_projects": "No hay proyectos guardados",
+        "project_name": "Nombre del Proyecto",
+        "saved": "¡Proyecto guardado!",
+        "validation_failed": "Fallo en la validación",
+        "execution_started": "¡Fusión iniciada!",
+        "merge_complete": "¡Fusión completada!",
+        "merge_failed": "Fusión fallida"
+    },
+    "canvas": {
+        "search_nodes": "Buscar nodos..."
+    },
+    "nodes": {
+        "checkpoint_loader": "Cargar Checkpoint",
+        "lora_loader": "Cargar LoRA",
+        "vae_loader": "Cargar VAE",
+        "merge_models": "Fusionar Modelos",
+        "apply_lora": "Aplicar LoRA",
+        "replace_vae": "Reemplazar VAE",
+        "save_checkpoint": "Guardar Checkpoint",
+        "metadata_editor": "Editor de Metadatos",
+        "note": "Nota",
+        "select_file": "Haz clic para seleccionar archivo...",
+        "note_placeholder": "Escribe una nota..."
+    },
+    "categories": {
+        "source": "Fuentes",
+        "processing": "Procesamiento",
+        "output": "Salida",
+        "utility": "Utilidad"
+    },
+    "sidebar": {
+        "properties": "Propiedades",
+        "select_node": "Selecciona un nodo para ver sus propiedades",
+        "node_info": "Información del Nodo",
+        "type": "Tipo",
+        "file": "Archivo",
+        "select_file": "— Seleccionar archivo —",
+        "no_files_found": "No se encontraron archivos",
+        "strength": "Fuerza",
+        "algorithm": "Algoritmo",
+        "parameters": "Parámetros",
+        "mbw": "Pesos por Bloque (MBW)",
+        "enable_mbw": "Habilitar pesos por bloque",
+        "set_all": "Establecer Todos",
+        "output": "Archivo de Salida",
+        "precision": "Precisión",
+        "metadata": "Metadatos Personalizados",
+        "add_field": "Añadir Campo"
+    },
+    "settings": {
+        "directories": "Directorios",
+        "checkpoints": "Checkpoints",
+        "lora": "LoRA",
+        "vae": "VAE",
+        "output": "Salida",
+        "select_directory": "Seleccionar directorio...",
+        "browse": "Explorar",
+        "use_this": "Usar este directorio",
+        "merge": "Ajustes de Fusión",
+        "device": "Dispositivo",
+        "default_dtype": "Precisión por Defecto",
+        "low_vram": "Modo Baja VRAM (más lento, menos memoria)",
+        "save": "Guardar Ajustes",
+        "saved": "¡Ajustes guardados!"
+    },
+    "status": {
+        "connected": "Conectado",
+        "disconnected": "Desconectado",
+        "nodes": "nodos",
+        "connections": "conexiones"
+    },
+    "context": {
+        "duplicate": "Duplicar",
+        "select_connected": "Seleccionar Conectados",
+        "delete": "Eliminar"
+    }
+}
