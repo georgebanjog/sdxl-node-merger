@@ -72,7 +72,7 @@ Instead of writing scripts or using CLI tools, you simply **drag, drop, and conn
 - Optimized `.safetensors` I/O
 
 ### 🎨 Premium Interface
-- **4 built-in themes**: Midnight, Aurora, Ember, Frost
+- **14 built-in themes**: Midnight, Aurora, Ember, Frost, Cyberpunk, Forest, Ocean, Sunset, Monochromia, Velvet, Aqua, Solar, Matrix, Cosmic
 - **Glassmorphism** dark UI with smooth micro-animations
 - **i18n support**: English and Russian (extensible)
 - Responsive layout with collapsible sidebar
